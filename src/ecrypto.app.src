@@ -1,0 +1,10 @@
+{application, ecrypto,
+   [{description, "PMT Erlang Crypto"},
+    {vsn, git},
+    {modules, 
+	[{{modules}}]
+    },
+    {registered, []},
+    {applications, [kernel, stdlib]}
+]}. 
+
