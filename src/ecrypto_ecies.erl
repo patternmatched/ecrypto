@@ -152,7 +152,7 @@ validate_mac_tag(EncData,MacKey,MacTag1,Param) ->
     _MacTag2 -> throw({invalid_ecies_mac,[]})
   end.
 %%-------------------------------------------------------------------------------------------
-trunc_bin(Data,Size) when is_binary(Data), (size(Data) >= Size) ->
+trunc_bin(Data,Size) when is_binary(Data) andalso (size(Data) >= Size) ->
   <<TruncData:Size/binary,_/binary>> = Data,
   TruncData;
 trunc_bin(Data,_Size) ->
