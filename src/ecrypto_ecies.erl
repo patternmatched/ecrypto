@@ -7,6 +7,7 @@
 -module(ecrypto_ecies).
 
 -export([
+	 ecies_with_aescbc128_sha1/1,
 	 ecies_with_aescbc128_sha224/1,
 	 ecies_with_aescbc128_sha256/1,
 	 ecies_with_aescbc256_sha256/1,
@@ -19,6 +20,16 @@
 %%==========================================================================================
 -record(ecies_param,{ curve_name, kdf_mac, cipher, cipher_padding, key_size, cipher_block_size, mac }).
 %%==========================================================================================
+
+ecies_with_aescbc128_sha1(CurveName) ->
+  #ecies_param{ curve_name        = CurveName,
+		kdf_mac           = sha,
+		cipher            = aes_cbc128,
+		cipher_padding    = pkcs7,
+		key_size          = 16,
+		cipher_block_size = 16,
+		mac               = sha
+	       }.
 
 ecies_with_aescbc128_sha224(CurveName) ->
   #ecies_param{ curve_name        = CurveName,
@@ -86,7 +97,7 @@ encrypt(OtherStaticPubKey,Data,Param) when is_binary(OtherStaticPubKey), is_bina
 
   %% Using KDF2 to get MAC and ENC Keys
   KeySize = Param#ecies_param.key_size,
-  <<MacKey:KeySize/binary,EncKey:KeySize/binary>> = kdf2(<<EphemeralPubKey/binary,SharedSecret/binary>>,<<>>,KeySize * 2,Param#ecies_param.kdf_mac),
+  <<EncKey:KeySize/binary,MacKey:KeySize/binary>> = kdf2(<<EphemeralPubKey/binary,SharedSecret/binary>>,<<>>,KeySize * 2,Param#ecies_param.kdf_mac),
   
   %% Encrypt using ENC Key and 000...IV
   IV = <<0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>,
@@ -108,17 +119,18 @@ decrypt(StaticPrivKey,EncBlock,Param) when is_binary(StaticPrivKey), is_binary(E
       <<OtherEphemeralPubKey:PubKeySize/binary,EncData:DataSize/binary,MacTag1:MacSize/binary>> ->
 	
 	%% Calculate Shared Secret with ECDH
-	SharedSecret = crypto:compute_key(ecdh,OtherEphemeralPubKey,StaticPrivKey,Param#ecies_param.curve_name),  
+	SharedSecret = crypto:compute_key(ecdh,OtherEphemeralPubKey,StaticPrivKey,Param#ecies_param.curve_name),
 
 	%% Using KDF2 to get MAC and ENC Keys
 	KeySize = Param#ecies_param.key_size,
-	<<MacKey:KeySize/binary,EncKey:KeySize/binary>> = kdf2(<<OtherEphemeralPubKey/binary,SharedSecret/binary>>,<<>>,KeySize * 2,Param#ecies_param.kdf_mac),
+	<<EncKey:KeySize/binary,MacKey:KeySize/binary>> = kdf2(<<OtherEphemeralPubKey/binary,SharedSecret/binary>>,<<>>,KeySize * 2,Param#ecies_param.kdf_mac),
 	
 	%% Verify Mac Tag using encrypted data
 	validate_mac_tag(EncData,MacKey,MacTag1,Param),
 	
 	IV = <<0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>,
-	cipher_unpad(crypto:block_decrypt(Param#ecies_param.cipher,EncKey,IV,EncData),Param);
+	Data = crypto:block_decrypt(Param#ecies_param.cipher,EncKey,IV,EncData),
+	cipher_unpad(Data,Param);
       _ ->
 	throw({invalid_ecies_decrypt_block,[]})
     end

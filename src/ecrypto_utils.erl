@@ -31,7 +31,7 @@ ec_pubkey_der_decode(PubKey,_CurveName) ->
 
 ec_pubkey_der_encode(PubKey,CurveName) ->
   public_key:der_encode('SubjectPublicKeyInfo',{'SubjectPublicKeyInfo',algo_id(CurveName),PubKey}).
-  
+
 algo_id(secp256r1) -> 
   {'AlgorithmIdentifier',{1,2,840,10045,2,1},<<6,8,42,134,72,206,61,3,1,7>>};
 algo_id(CurveName) ->
