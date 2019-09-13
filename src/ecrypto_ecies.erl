@@ -7,15 +7,14 @@
 -module(ecrypto_ecies).
 
 -export([
-	 ecies_with_aescbc128_sha1/1,
-	 ecies_with_aescbc128_sha224/1,
-	 ecies_with_aescbc128_sha256/1,
-	 ecies_with_aescbc256_sha256/1,
-	 generate_key/1,
-	 kdf2/4,
-	 encrypt/3,
-	 decrypt/3
-	]).
+         ecies_with_aescbc128_sha1/1,
+         ecies_with_aescbc128_sha224/1,
+         ecies_with_aescbc128_sha256/1,
+         ecies_with_aescbc256_sha256/1,
+         generate_key/1,
+         encrypt/3,
+         decrypt/3
+        ]).
 
 %%==========================================================================================
 -record(ecies_param,{ curve_name, kdf_mac, cipher, cipher_padding, key_size, cipher_block_size, mac }).
@@ -23,63 +22,43 @@
 
 ecies_with_aescbc128_sha1(CurveName) ->
   #ecies_param{ curve_name        = CurveName,
-		kdf_mac           = sha,
-		cipher            = aes_cbc128,
-		cipher_padding    = pkcs7,
-		key_size          = 16,
-		cipher_block_size = 16,
-		mac               = sha
-	       }.
+                kdf_mac           = sha,
+                cipher            = aes_cbc128,
+                cipher_padding    = pkcs7,
+                key_size          = 16,
+                cipher_block_size = 16,
+                mac               = sha
+               }.
 
 ecies_with_aescbc128_sha224(CurveName) ->
   #ecies_param{ curve_name        = CurveName,
-		kdf_mac           = sha,
-		cipher            = aes_cbc128,
-		cipher_padding    = pkcs7,
-		key_size          = 16,
-		cipher_block_size = 16,
-		mac               = sha224
-	       }.
+                kdf_mac           = sha,
+                cipher            = aes_cbc128,
+                cipher_padding    = pkcs7,
+                key_size          = 16,
+                cipher_block_size = 16,
+                mac               = sha224
+               }.
 
 ecies_with_aescbc128_sha256(CurveName) ->
   #ecies_param{ curve_name        = CurveName,
-		kdf_mac           = sha,
-		cipher            = aes_cbc128,
-		cipher_padding    = pkcs7,
-		key_size          = 16,
-		cipher_block_size = 16,
-		mac               = sha256
-	       }.
+                kdf_mac           = sha,
+                cipher            = aes_cbc128,
+                cipher_padding    = pkcs7,
+                key_size          = 16,
+                cipher_block_size = 16,
+                mac               = sha256
+               }.
 
 ecies_with_aescbc256_sha256(CurveName) ->
   #ecies_param{ curve_name        = CurveName,
-		kdf_mac           = sha,
-		cipher            = aes_cbc256,
-		cipher_padding    = pkcs7,
-		key_size          = 32,
-		cipher_block_size = 16,
-		mac               = sha256
-	       }.
-
-%%==========================================================================================
-
-
-%%==========================================================================================
-%% IEEEE P 1683a KDF2
-%%==========================================================================================
-
-kdf2(SharedSecret,ExtraData,KeyOutputSize,HashAlgoritm) when is_binary(SharedSecret),
-							     is_binary(ExtraData),
-							     is_integer(KeyOutputSize),
-							     is_atom(HashAlgoritm) ->
-  HashSize = hash_size(HashAlgoritm),
-  RepCount = (KeyOutputSize + HashSize - 1) div HashSize,
-  MaxCounter = round(math:pow(2,32)),
-  F = fun(Counter,Results) ->
-	  Hash = crypto:hash(HashAlgoritm,<<SharedSecret/binary,(Counter rem MaxCounter):32,ExtraData/binary>>),
-	  <<Results/binary,Hash/binary>>
-      end,
-  trunc_bin(lists:foldl(F,<<>>,lists:seq(1,RepCount)),KeyOutputSize).
+                kdf_mac           = sha,
+                cipher            = aes_cbc256,
+                cipher_padding    = pkcs7,
+                key_size          = 32,
+                cipher_block_size = 16,
+                mac               = sha256
+               }.
 
 %%==========================================================================================
 
@@ -94,10 +73,10 @@ encrypt(OtherStaticPubKey,Data,Param) when is_binary(OtherStaticPubKey), is_bina
   
   %% Calculate Shared Secret with ECDH
   SharedSecret = crypto:compute_key(ecdh,OtherStaticPubKey,EphemeralPrivKey,Param#ecies_param.curve_name),
-
+  
   %% Using KDF2 to get MAC and ENC Keys
   KeySize = Param#ecies_param.key_size,
-  <<EncKey:KeySize/binary,MacKey:KeySize/binary>> = kdf2(<<EphemeralPubKey/binary,SharedSecret/binary>>,<<>>,KeySize * 2,Param#ecies_param.kdf_mac),
+  <<EncKey:KeySize/binary,MacKey:KeySize/binary>> = ecrypto_key:kdf2(<<EphemeralPubKey/binary,SharedSecret/binary>>,<<>>,KeySize * 2,Param#ecies_param.kdf_mac),
   
   %% Encrypt using ENC Key and 000...IV
   IV = <<0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>,
@@ -113,32 +92,30 @@ encrypt(OtherStaticPubKey,Data,Param) when is_binary(OtherStaticPubKey), is_bina
 decrypt(StaticPrivKey,EncBlock,Param) when is_binary(StaticPrivKey), is_binary(EncBlock), is_record(Param,ecies_param) ->
   try
     PubKeySize = ec_pub_key_size(Param#ecies_param.curve_name),
-    MacSize    = hash_size(Param#ecies_param.mac),
-    DataSize   = size(EncBlock) - PubKeySize - hash_size(Param#ecies_param.mac),
+    MacSize    = ecrypto_utils:hash_size(Param#ecies_param.mac),
+    DataSize   = size(EncBlock) - PubKeySize - ecrypto_utils:hash_size(Param#ecies_param.mac),
     case EncBlock of
       <<OtherEphemeralPubKey:PubKeySize/binary,EncData:DataSize/binary,MacTag1:MacSize/binary>> ->
-	
-	%% Calculate Shared Secret with ECDH
-	SharedSecret = crypto:compute_key(ecdh,OtherEphemeralPubKey,StaticPrivKey,Param#ecies_param.curve_name),
-
-	%% Using KDF2 to get MAC and ENC Keys
-	KeySize = Param#ecies_param.key_size,
-	<<EncKey:KeySize/binary,MacKey:KeySize/binary>> = kdf2(<<OtherEphemeralPubKey/binary,SharedSecret/binary>>,<<>>,KeySize * 2,Param#ecies_param.kdf_mac),
-	
-	%% Verify Mac Tag using encrypted data
-	validate_mac_tag(EncData,MacKey,MacTag1,Param),
-	
-	IV = <<0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>,
-	Data = crypto:block_decrypt(Param#ecies_param.cipher,EncKey,IV,EncData),
-	cipher_unpad(Data,Param);
+        %% Calculate Shared Secret with ECDH
+        SharedSecret = crypto:compute_key(ecdh,OtherEphemeralPubKey,StaticPrivKey,Param#ecies_param.curve_name),
+        
+        %% Using KDF2 to get MAC and ENC Keys
+        KeySize = Param#ecies_param.key_size,
+        <<EncKey:KeySize/binary,MacKey:KeySize/binary>> = ecrypto_key:kdf2(<<OtherEphemeralPubKey/binary,SharedSecret/binary>>,<<>>,KeySize * 2,Param#ecies_param.kdf_mac),
+        
+        %% Verify Mac Tag using encrypted data
+        validate_mac_tag(EncData,MacKey,MacTag1,Param),
+        
+        IV = <<0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>,
+        Data = crypto:block_decrypt(Param#ecies_param.cipher,EncKey,IV,EncData),
+        cipher_unpad(Data,Param);
       _ ->
-	throw({invalid_ecies_decrypt_block,[]})
+        throw({invalid_ecies_decrypt_block,[]})
     end
   catch
     error:badarg ->
       throw({invalid_ecies_decrypt_block,[]})
   end.
-      
 
 %%==========================================================================================
 
@@ -163,19 +140,6 @@ validate_mac_tag(EncData,MacKey,MacTag1,Param) ->
     MacTag1  -> ok;
     _MacTag2 -> throw({invalid_ecies_mac,[]})
   end.
-%%-------------------------------------------------------------------------------------------
-trunc_bin(Data,Size) when is_binary(Data) andalso (size(Data) >= Size) ->
-  <<TruncData:Size/binary,_/binary>> = Data,
-  TruncData;
-trunc_bin(Data,_Size) ->
-  Data.
-%%-------------------------------------------------------------------------------------------
-hash_size(sha)    -> 20;
-hash_size(sha224) -> 28;
-hash_size(sha256) -> 32;
-hash_size(sha384) -> 48;
-hash_size(sha512) -> 64;
-hash_size(Algorithm) -> throw({invalid_hash_algorithm,Algorithm}).
 %%-------------------------------------------------------------------------------------------
 ec_pub_key_size(secp160r1) -> 41;
 ec_pub_key_size(secp160r2) -> 41;
@@ -207,4 +171,3 @@ ec_pub_key_size(sect571k1) -> 145;
 ec_pub_key_size(sect571r1) -> 145;
 ec_pub_key_size(CurveName) -> throw({ec_curve_not_supported,[{curvename,CurveName}]}).
 %%-------------------------------------------------------------------------------------------
-

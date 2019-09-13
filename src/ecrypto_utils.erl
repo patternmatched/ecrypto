@@ -7,15 +7,17 @@
 -module(ecrypto_utils).
 
 -export([
-	 pkcs7_pad/2, pkcs7_unpad/1,
-	 ec_pubkey_der_decode/2, ec_pubkey_der_encode/2
-	]).
+         pkcs7_pad/2, pkcs7_unpad/1,
+         ec_pubkey_der_decode/2, ec_pubkey_der_encode/2,
+         trunc_bin/2,
+         hash_size/1
+        ]).
 
 pkcs7_pad(Data,Size) ->
   PadLen = case size(Data) rem Size of
-	     0 -> Size;
-	     P -> (Size - P)
-	   end,
+             0 -> Size;
+             P -> (Size - P)
+           end,
   PadBytes = list_to_binary(lists:duplicate(PadLen,PadLen)),
   <<Data/binary,PadBytes/binary>>.
 
@@ -36,3 +38,15 @@ algo_id(secp256r1) ->
   {'AlgorithmIdentifier',{1,2,840,10045,2,1},<<6,8,42,134,72,206,61,3,1,7>>};
 algo_id(CurveName) ->
   throw({ec_curve_not_supported,[{curvename,CurveName}]}).
+
+trunc_bin(Data,Size) when is_binary(Data) andalso (size(Data) >= Size) ->
+  binary:part(Data,0,Size);
+trunc_bin(Data,_Size) ->
+  Data.
+
+hash_size(sha)    -> 20;
+hash_size(sha224) -> 28;
+hash_size(sha256) -> 32;
+hash_size(sha384) -> 48;
+hash_size(sha512) -> 64;
+hash_size(Algorithm) -> throw({invalid_hash_algorithm,Algorithm}).
