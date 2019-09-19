@@ -8,6 +8,7 @@
 %%==========================================================================================
 %% IEEEE P 1683a KDF2
 %%==========================================================================================
+-define(MAX_COUNTER,4294967296).
 
 kdf2(SharedSecret,ExtraData,KeyOutputSize,HashAlgoritm) when is_binary(SharedSecret),
 							     is_binary(ExtraData),
@@ -15,9 +16,8 @@ kdf2(SharedSecret,ExtraData,KeyOutputSize,HashAlgoritm) when is_binary(SharedSec
 							     is_atom(HashAlgoritm) ->
   HashSize = ecrypto_utils:hash_size(HashAlgoritm),
   RepCount = (KeyOutputSize + HashSize - 1) div HashSize,
-  MaxCounter = round(math:pow(2,32)),
   F = fun(Counter,Results) ->
-	  Hash = crypto:hash(HashAlgoritm,<<SharedSecret/binary,(Counter rem MaxCounter):32,ExtraData/binary>>),
+	  Hash = crypto:hash(HashAlgoritm,<<SharedSecret/binary,(Counter rem ?MAX_COUNTER):32,ExtraData/binary>>),
 	  <<Results/binary,Hash/binary>>
       end,
   ecrypto_utils:trunc_bin(lists:foldl(F,<<>>,lists:seq(1,RepCount)),KeyOutputSize).

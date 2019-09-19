@@ -102,7 +102,7 @@ extract(Data,Params,IVIncluded) ->
       {Vector,EncData,HashedValue};
     <<EncData:DataSize/binary,HashedValue:HashSize/binary>> when (IVIncluded =:= false) ->
       {EncData,HashedValue};
-    _InvalidData ->
+    Data ->
       throw({crypto_error,[]})
   end.
 

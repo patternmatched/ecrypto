@@ -39,8 +39,6 @@ all(suite) ->
    test_encrypt_decrypt_aes256_cbc_sha512
   ].
 
--define(ASSERT_THROW(Code,ExpectedThrow), try Code catch throw:{ExpectedThrow,_} -> ok; throw:ExpectedThrow -> ok end).
-
 %%--------------------------------------------------------------------
 
 test_encrypt_decrypt_aes128_cbc_sha256(suite) ->
@@ -57,12 +55,12 @@ test_encrypt_decrypt_aes128_cbc_sha256(Config) when is_list(Config) ->
   Data = <<"123456789012345">>,
   EncData = ecrypto_aead:encrypt(Key,Data,<<>>,proplists:get_value(params,Config)),
   ?assertEqual(48,size(EncData)),
-  Data = ecrypto_aead:decrypt(Key,EncData,<<>>,proplists:get_value(params,Config)),
+  ?assertEqual(Data,ecrypto_aead:decrypt(Key,EncData,<<>>,proplists:get_value(params,Config))),
 
   Data2 = <<"1234567890123456">>,
   EncData2 = ecrypto_aead:encrypt(Key,Data2,<<>>,proplists:get_value(params,Config)),
   ?assertEqual(64,size(EncData2)),
-  Data2 = ecrypto_aead:decrypt(Key,EncData2,<<>>,proplists:get_value(params,Config)),
+  ?assertEqual(Data2,ecrypto_aead:decrypt(Key,EncData2,<<>>,proplists:get_value(params,Config))),
   ok.
 
 test_encrypt_decrypt_aes128_cbc_sha256_external_iv(suite) ->
@@ -79,7 +77,7 @@ test_encrypt_decrypt_aes128_cbc_sha256_external_iv(Config) when is_list(Config) 
   IV = <<0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>,
   EncData = ecrypto_aead:encrypt(Key,IV,Data,<<>>,proplists:get_value(params,Config)),
   ?assertEqual(32,size(EncData)),
-  Data = ecrypto_aead:decrypt(Key,IV,EncData,<<>>,proplists:get_value(params,Config)),
+  ?assertEqual(Data,ecrypto_aead:decrypt(Key,IV,EncData,<<>>,proplists:get_value(params,Config))),
   ok.
 
 test_encrypt_decrypt_aes128_cbc_sha256_external_iv_and_aad(suite) ->
@@ -98,9 +96,9 @@ test_encrypt_decrypt_aes128_cbc_sha256_external_iv_and_aad(Config) when is_list(
   EncData = ecrypto_aead:encrypt(Key,IV,Data,AAD,proplists:get_value(params,Config)),
   ?assertEqual(32,size(EncData)),
   %% Test Invalid AAD
-  ?ASSERT_THROW( ecrypto_aead:decrypt(Key,IV,EncData,<<>>,proplists:get_value(params,Config)), crypto_error ),
+  ?assertThrow( {crypto_error,_}, ecrypto_aead:decrypt(Key,IV,EncData,<<>>,proplists:get_value(params,Config)) ),
   %% Test Valid AAD
-  Data = ecrypto_aead:decrypt(Key,IV,EncData,AAD,proplists:get_value(params,Config)),
+  ?assertEqual(Data,ecrypto_aead:decrypt(Key,IV,EncData,AAD,proplists:get_value(params,Config))),
   ok.
 
 %%--------------------------------------------------------------------
@@ -119,7 +117,7 @@ test_encrypt_decrypt_aes192_cbc_sha384(Config) when is_list(Config) ->
 
   EncData = ecrypto_aead:encrypt(Key,Data,<<>>,proplists:get_value(params,Config)),
   ?assertEqual(56,size(EncData)),
-  Data = ecrypto_aead:decrypt(Key,EncData,<<>>,proplists:get_value(params,Config)),
+  ?assertEqual(Data,ecrypto_aead:decrypt(Key,EncData,<<>>,proplists:get_value(params,Config))),
   ok.
 
 test_encrypt_decrypt_aes256_cbc_sha512(suite) ->
@@ -136,5 +134,5 @@ test_encrypt_decrypt_aes256_cbc_sha512(Config) when is_list(Config) ->
 
   EncData = ecrypto_aead:encrypt(Key,Data,<<>>,proplists:get_value(params,Config)),
   ?assertEqual(64,size(EncData)),
-  Data = ecrypto_aead:decrypt(Key,EncData,<<>>,proplists:get_value(params,Config)),
+  ?assertEqual(Data,ecrypto_aead:decrypt(Key,EncData,<<>>,proplists:get_value(params,Config))),
   ok.
